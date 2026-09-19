@@ -31,6 +31,24 @@ _MCP_CONFIG = _REPO_ROOT / ".mcp.json"
 _DEFAULT_OMADA_MCP_DIR = _REPO_ROOT.parent / "omada-controller-mcp"
 
 
+def _resolve_omada_mcp_dir() -> Path:
+    """Resolve and validate the omada-controller-mcp checkout to launch.
+
+    OMADA_MCP_DIR is attacker-influenced in principle (any process that can
+    set env vars for this one), and it flows straight into a subprocess
+    argv (`uv run --directory <dir> run omada-mcp`). Refuse to launch
+    against a directory that isn't actually that project.
+    """
+    omada_dir = Path(os.getenv("OMADA_MCP_DIR") or _DEFAULT_OMADA_MCP_DIR).resolve()
+    pyproject = omada_dir / "pyproject.toml"
+    if not pyproject.is_file() or '"omada-controller-mcp"' not in pyproject.read_text():
+        raise RuntimeError(
+            f"OMADA_MCP_DIR ({omada_dir}) doesn't look like an omada-controller-mcp "
+            "checkout (missing or mismatched pyproject.toml)."
+        )
+    return omada_dir
+
+
 class IncidentTriage(BaseModel):
     severity: Severity = Field(description="Impact severity of the network incident.")
     affected_asset: str = Field(
@@ -54,11 +72,15 @@ class NetworkOpsAgent(Agent, llm=build_llm()):
         super().__init__(**kwargs)
         # Each MCPTool owns connection state (a subprocess + session), so
         # keep it per agent instance rather than sharing across agents.
-        omada_dir = os.getenv("OMADA_MCP_DIR", str(_DEFAULT_OMADA_MCP_DIR))
+        # args is always passed explicitly (not left to .mcp.json's own
+        # args) so the OMADA_MCP_DIR validation above is what actually
+        # decides the launched path; .mcp.json stays there for other MCP
+        # clients (e.g. Claude Code) reading it directly.
+        omada_dir = _resolve_omada_mcp_dir()
         self.omada = MCPManager.create_from_server(
             "omada",
             mcp_file=_MCP_CONFIG,
-            args=["--directory", omada_dir, "run", "omada-mcp"],
+            args=["--directory", str(omada_dir), "run", "omada-mcp"],
         )
 
     # PredictStrategy: single-shot typed classification.

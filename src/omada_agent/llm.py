@@ -14,7 +14,7 @@ import os
 from dotenv import load_dotenv
 from nooa.unifiedllm.registry import get_llm_client
 
-load_dotenv(override=True)
+load_dotenv(override=False)
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -40,12 +40,18 @@ def build_llm():
 
     model_name = os.getenv("NEMOTRON_MODEL_NAME", "nvidia/nemotron-lightning-30b-a3b")
     enable_thinking = _env_bool("NEMOTRON_ENABLE_THINKING", True)
+    max_tokens = int(os.getenv("NEMOTRON_MAX_TOKENS", "16384"))
 
     return get_llm_client(
         f"openai/{model_name}",
         api_base=base_url,
         api_key=os.getenv("NEMOTRON_API_KEY", "not-needed"),
         # Qwen-coder chat template: thinking is a request-time toggle, not a
-        # reasoning-effort level.
+        # reasoning-effort level. Some servers (LM Studio, at least as of
+        # 2026-09) don't honor it and always emit reasoning tokens, so
+        # max_tokens needs real headroom on top of whatever the tool-call
+        # response itself needs, or the model burns its whole budget on
+        # <think> and never emits the call.
         extra_body={"chat_template_kwargs": {"enable_thinking": enable_thinking}},
+        max_tokens=max_tokens,
     )
