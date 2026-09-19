@@ -33,7 +33,9 @@ _DEFAULT_OMADA_MCP_DIR = _REPO_ROOT.parent / "omada-controller-mcp"
 
 class IncidentTriage(BaseModel):
     severity: Severity = Field(description="Impact severity of the network incident.")
-    affected_asset: str = Field(description="Site, device, or client name from the controller, if any.")
+    affected_asset: str = Field(
+        description="Site, device, or client name from the controller, if any."
+    )
     summary: str = Field(description="One-sentence summary of the incident.")
 
 

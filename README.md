@@ -1,5 +1,10 @@
 # nooa-omada-agent
 
+[![CI](https://github.com/samhaque/nooa-omada-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/samhaque/nooa-omada-agent/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white)
+![NOOA](https://img.shields.io/badge/agent-NOOA-76B900?style=flat-square)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
+
 A [NOOA](https://github.com/NVIDIA-NeMo/labs-OO-Agents) agent that manages a
 TP-Link Omada SDN network: it talks to
 [omada-controller-mcp](https://github.com/samhaque/omada-controller-mcp) over
@@ -9,93 +14,88 @@ model. The NIM is reachable at an on-prem URL with no auth, deployed as an
 OpenShift **KServe** `InferenceService` (serverless) and fronted by
 **Kourier** (Knative's networking layer).
 
-Background: NOOA is NVIDIA's "agent is a Python object" framework — see
+Background: NOOA is NVIDIA's "agent is a Python object" framework, see
 [arXiv:2607.20709](https://arxiv.org/abs/2607.20709). Its `CodeActStrategy`
 loop drives the model with a tool-calling contract (`execute_python` /
 `return_result`); NOOA's chat-completion client already has a fallback parser
 for `<tool_call>` XML output (`unifiedllm.py: _extract_xml_tool_calls`), which
-is the tool-call format Qwen-coder-style models emit — relevant since the
+is the tool-call format Qwen-coder-style models emit, relevant since the
 served model uses that chat template. No extra glue code needed for that part.
 
-## Layout
+## Architecture
 
-```
-src/omada_agent/
-  llm.py     # builds the UnifiedLLM client from NEMOTRON_* env vars
-  agent.py   # NetworkOpsAgent: MCPTool wired to omada-controller-mcp, Predict + CodeAct methods
-  __main__.py
-.mcp.json    # tells NOOA's MCPManager how to launch the omada MCP server
-tests/test_llm_config.py   # assert-based, no network — validates env parsing
+```mermaid
+flowchart LR
+    Agent["🤖 NetworkOpsAgent<br/>PredictStrategy + CodeActStrategy"]
+
+    subgraph NIM["🧠 Nemotron Lightning 30B A3B"]
+        direction TB
+        Kourier["Kourier route"]
+        KServe["KServe InferenceService<br/>(serverless, scales to zero)"]
+        Kourier --> KServe
+    end
+
+    MCP["📦 omada-controller-mcp<br/>(stdio subprocess)"]
+    Controller[("🌐 Omada SDN Controller")]
+
+    Agent == "OpenAI-compatible chat<br/>+ enable_thinking toggle" ==> Kourier
+    Agent == "MCPTool over stdio" ==> MCP
+    MCP == "search / inspect / call" ==> Controller
 ```
 
-## Setup
+`NetworkOpsAgent` exposes one `MCPTool` (`omada`, launched as a stdio
+subprocess from `.mcp.json`) plus two strategy methods: `triage` for a
+single-shot typed classification and `recommend_action` for a multi-step
+tool-using investigation.
+
+## Quickstart
 
 Needs a checkout of
 [omada-controller-mcp](https://github.com/samhaque/omada-controller-mcp) as a
 sibling directory (`../omada-controller-mcp`), or point `OMADA_MCP_DIR` at
 wherever yours lives. That repo has its own setup for talking to a real
-controller (`OMADA_CLIENT_ID`/`OMADA_CLIENT_SECRET`); without one reachable it
-falls back to a bundled API spec snapshot, which is enough to exercise the
-agent's tool-calling loop without a live controller.
+controller; without one reachable it falls back to a bundled API spec
+snapshot, enough to exercise the agent's tool-calling loop without a live
+controller.
 
-```sh
-uv sync --extra mcp
+```bash
+uv sync
 cp .env.example .env
 # edit .env: set NEMOTRON_BASE_URL to your cluster's Kourier route
+uv run python -m omada_agent
 ```
 
-`NEMOTRON_BASE_URL` is required — there's no public fallback for a
-firewalled, on-prem endpoint. It's whatever `curl` can already reach from
-inside the network boundary, e.g.:
+`NEMOTRON_BASE_URL` is required, there's no public fallback for a
+firewalled, on-prem endpoint. Confirm connectivity and the exact served model
+name before running, NIM's `/models` response is the source of truth:
 
-- In-cluster: `http://nemotron-lightning-predictor.<namespace>.svc.cluster.local/v1`
-- Via the Kourier-fronted OpenShift route: `https://nemotron-lightning-predictor-<namespace>.apps.<cluster-domain>/v1`
-
-Confirm connectivity and the exact served model name before running the agent
-— NIM's `/models` response is the source of truth, not the marketing name:
-
-```sh
+```bash
 curl -s "$NEMOTRON_BASE_URL/models" | python3 -m json.tool
 ```
 
 Set `NEMOTRON_MODEL_NAME` in `.env` to the `id` field from that response if it
-doesn't match the default in `.env.example`.
+doesn't match the default.
 
-## Run
+## Layout
 
-```sh
-uv run python -m omada_agent
+| Path | What's there |
+|---|---|
+| `src/omada_agent/llm.py` | Builds the `UnifiedLLM` client from `NEMOTRON_*` env vars |
+| `src/omada_agent/agent.py` | `NetworkOpsAgent`: `MCPTool` wired to omada-controller-mcp, `Predict` + `CodeAct` methods |
+| `src/omada_agent/__main__.py` | Runnable demo (`uv run python -m omada_agent`) |
+| `.mcp.json` | Tells NOOA's `MCPManager` how to launch the omada MCP server |
+| `docs/DEPLOYMENT.md` | On-prem deployment notes: no-auth NIM, thinking toggle, cold starts, Omada trust model |
+
+## Tests
+
+```bash
+uv run pytest
 ```
 
-Launches `omada-controller-mcp` as a subprocess over stdio, triages a sample
-network incident, then asks the agent to investigate using the omada tools
-and recommend a next action.
+Assert-based, no network calls, validates env parsing (routing prefix,
+thinking toggle, api_key passthrough) before you have cluster or controller
+access, or in CI.
 
-## Verify without a live endpoint
+## Contributing
 
-```sh
-python tests/test_llm_config.py
-```
-
-Checks env-var validation and client construction (routing prefix, thinking
-toggle, api_key passthrough) with no network call — useful before you have
-cluster or controller access, or in CI.
-
-## Notes on this deployment shape
-
-- **No auth on the LLM**: the OpenAI-compatible client still requires a
-  non-empty `api_key` string to set the `Authorization` header; NIM behind
-  Kourier with no auth ignores it. `NEMOTRON_API_KEY` defaults to
-  `not-needed`.
-- **Thinking toggle**: Qwen-coder-family chat templates take
-  `enable_thinking` as a boolean in `chat_template_kwargs`, not a
-  reasoning-effort string — set via `NEMOTRON_ENABLE_THINKING` in `.env`,
-  forwarded as `extra_body` on every call.
-- **Serverless cold starts**: KServe serverless scales to zero. The first
-  request after idle may take longer than NOOA's default HTTP timeout;
-  raise `http_config` on the client (see `nooa.unifiedllm.http_config.HttpConfig`)
-  if you see timeouts on cold start rather than treating it as a broken route.
-- **Trust model on the Omada side**: `omada-controller-mcp`'s `call_operation`
-  can reach every cataloged operation, including destructive ones (reboot,
-  config changes), using that server's own session — see its README's
-  trust-model section before pointing this agent at a production controller.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md).

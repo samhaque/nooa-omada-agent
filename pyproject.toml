@@ -2,11 +2,30 @@
 name = "nooa-omada-agent"
 version = "0.2.0"
 description = "NOOA network-ops agent for a TP-Link Omada SDN controller (via omada-controller-mcp), backed by a self-hosted Nemotron Lightning 30B A3B NIM"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "samhaque", email = "13789262+samhaque@users.noreply.github.com" }
+]
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "nooa[mcp]>=0.1.0",
+    "nooa[mcp]>=0.0.10",
     "python-dotenv>=1.0",
 ]
+
+[dependency-groups]
+dev = ["ruff>=0.16.8", "pytest>=8.4.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
 
 [build-system]
 requires = ["hatchling"]

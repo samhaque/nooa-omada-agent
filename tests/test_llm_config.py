@@ -14,7 +14,12 @@ from omada_agent.llm import build_llm  # noqa: E402
 
 
 def _clear_env():
-    for key in ("NEMOTRON_BASE_URL", "NEMOTRON_MODEL_NAME", "NEMOTRON_API_KEY", "NEMOTRON_ENABLE_THINKING"):
+    for key in (
+        "NEMOTRON_BASE_URL",
+        "NEMOTRON_MODEL_NAME",
+        "NEMOTRON_API_KEY",
+        "NEMOTRON_ENABLE_THINKING",
+    ):
         os.environ.pop(key, None)
 
 
