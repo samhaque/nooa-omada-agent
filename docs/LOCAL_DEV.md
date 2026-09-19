@@ -86,10 +86,9 @@ all available output tokens on reasoning`, not the thinking toggle. See
 [`DEPLOYMENT.md`](DEPLOYMENT.md#thinking-toggle-and-max_tokens) for the
 cluster/NIM-side version of this note.
 
-## Also needed: an `omada-controller-mcp` checkout
+## Also needed: an [`omada-controller-mcp`](https://github.com/samhaque/omada-controller-mcp) checkout
 
-Sibling directory (`../omada-controller-mcp`) or `OMADA_MCP_DIR` pointed at
-one. Without a real controller reachable it falls back to a bundled API
-spec snapshot, enough to exercise the tool-calling loop, but `list_sites`/
-`list_devices` will error (`ConnectError`) since those hit the live API, not
-just the catalog.
+Sibling directory or `OMADA_MCP_DIR` pointed at one. Without a real
+controller reachable it falls back to a bundled API spec snapshot, enough to
+exercise the tool-calling loop, but `list_sites`/`list_devices` will error
+(`ConnectError`) since those hit the live API, not just the catalog.
