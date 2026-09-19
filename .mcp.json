@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "omada": {
+      "command": "uv",
+      "args": ["--directory", "../omada-controller-mcp", "run", "omada-mcp"],
+      "transport": "stdio"
+    }
+  }
+}

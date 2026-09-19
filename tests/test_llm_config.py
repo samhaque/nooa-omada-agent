@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from nemotron_agent.llm import build_llm  # noqa: E402
+from omada_agent.llm import build_llm  # noqa: E402
 
 
 def _clear_env():

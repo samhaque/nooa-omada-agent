@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Runnable demo: uv run python -m nemotron_agent"""
+"""Runnable demo: uv run python -m omada_agent"""
 
 import asyncio
 
-from nemotron_agent.agent import ClusterOpsAgent
+from omada_agent.agent import NetworkOpsAgent
 
 
 async def main() -> None:
-    agent = ClusterOpsAgent()
-    report = "nemotron-lightning-predictor is returning 503s for all requests since 09:14 UTC."
+    agent = NetworkOpsAgent()
+    report = "AP at site HQ has been flapping offline every few minutes since 09:14 UTC."
 
     triage = await agent.triage(report)
-    print(f"severity={triage.severity} service={triage.affected_service}")
+    print(f"severity={triage.severity} asset={triage.affected_asset}")
     print(f"summary: {triage.summary}\n")
 
     action = await agent.recommend_action(report)
