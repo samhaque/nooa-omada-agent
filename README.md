@@ -76,6 +76,10 @@ curl -s "$NEMOTRON_BASE_URL/models" | python3 -m json.tool
 Set `NEMOTRON_MODEL_NAME` in `.env` to the `id` field from that response if it
 doesn't match the default.
 
+No cluster handy? See [`docs/LOCAL_DEV.md`](docs/LOCAL_DEV.md) for running
+the same model locally in LM Studio instead, quant used, fast download, and
+a known `enable_thinking` gotcha.
+
 ## Layout
 
 | Path | What's there |
@@ -85,6 +89,7 @@ doesn't match the default.
 | `src/omada_agent/__main__.py` | Runnable demo (`uv run python -m omada_agent`) |
 | `.mcp.json` | Tells NOOA's `MCPManager` how to launch the omada MCP server |
 | `docs/DEPLOYMENT.md` | On-prem deployment notes: no-auth NIM, thinking toggle, cold starts, Omada trust model |
+| `docs/LOCAL_DEV.md` | Run the same model locally in LM Studio instead of the cluster NIM |
 
 ## Tests
 
