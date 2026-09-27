@@ -64,6 +64,16 @@ class NetworkOpsAgent(Agent, llm=build_llm()):
     search_operations to find any other operation the controller supports,
     then get_operation_schema before calling an unfamiliar one with
     call_operation.
+
+    omada's methods are on a nested attribute, not directly on self, so always
+    `await`, every one of them is a coroutine:
+
+        sites = await self.omada.list_sites()
+        devices = await self.omada.list_devices()
+
+    Calling one without await silently does nothing (you get a dangling
+    coroutine object back, not data). If a cell's result looks empty or
+    wrong, check you awaited the call.
     """
 
     omada: MCPTool
@@ -77,10 +87,22 @@ class NetworkOpsAgent(Agent, llm=build_llm()):
         # decides the launched path; .mcp.json stays there for other MCP
         # clients (e.g. Claude Code) reading it directly.
         omada_dir = _resolve_omada_mcp_dir()
+        # nooa's stdio MCP client spawns with an env allowlist (PATH, HOME, ...)
+        # that drops everything else, so OMADA_BASE_URL/OMADA_VERIFY_SSL must be
+        # forwarded explicitly or the subprocess falls back to the placeholder URL.
+        env = {
+            k: v
+            for k, v in (
+                ("OMADA_BASE_URL", os.environ.get("OMADA_BASE_URL")),
+                ("OMADA_VERIFY_SSL", os.environ.get("OMADA_VERIFY_SSL")),
+            )
+            if v is not None
+        }
         self.omada = MCPManager.create_from_server(
             "omada",
             mcp_file=_MCP_CONFIG,
             args=["--directory", str(omada_dir), "run", "omada-mcp"],
+            env=env or None,
         )
 
     # PredictStrategy: single-shot typed classification.
