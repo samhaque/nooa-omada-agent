@@ -14,7 +14,11 @@ async def main() -> None:
     print(f"severity={triage.severity} asset={triage.affected_asset}")
     print(f"summary: {triage.summary}\n")
 
-    action = await agent.recommend_action(report)
+    # A fresh agent: on one shared history the model tends to answer the
+    # earlier triage task again instead of investigating. (Clearing
+    # event_manager instead also drops NOOA's execution-context block, and
+    # the model then forgets top-level await works.)
+    action = await NetworkOpsAgent().recommend_action(report)
     print(f"recommended action:\n{action}")
 
 
