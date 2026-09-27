@@ -74,6 +74,12 @@ class NetworkOpsAgent(Agent, llm=build_llm()):
     Calling one without await silently does nothing (you get a dangling
     coroutine object back, not data). If a cell's result looks empty or
     wrong, check you awaited the call.
+
+    Every omada call returns JSON text, not a dict: `json.loads()` it before
+    indexing. call_operation takes path_params and query_params as dicts,
+    and many list operations require page and pageSize in query_params:
+
+        devices = json.loads(await self.omada.list_devices())
     """
 
     omada: MCPTool
